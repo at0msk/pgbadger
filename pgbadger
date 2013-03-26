@@ -171,6 +171,7 @@ my $select_only             = 0;
 my $tsung_queries           = 0;
 my $queue_size              = 0;
 my $job_per_file            = 0;
+my $html_charset             = "UTF-8";
 
 my $NUMPROGRESS = 10000;
 my @DIMENSIONS  = (800, 300);
@@ -239,6 +240,7 @@ my $result = GetOptions(
 	"disable-checkpoint!"      => \$disable_checkpoint,
 	"disable-autovacuum!"      => \$disable_autovacuum,
 	"client=s"                 => \@dbclient2, # Backward compatibility
+    "html-charset=s"            => \$html_charset,
 );
 die "FATAL: use pgbadger --help\n" if (not $result);
 
@@ -885,6 +887,7 @@ Options:
     --disable-temporary    : do not generate temporary report.
     --disable-checkpoint   : do not generate checkpoint report.
     --disable-autovacuum   : do not generate autovacuum report.
+    --html-charset         : charset for html reports. default is UTF-8.
 
 Examples:
 
@@ -2034,6 +2037,7 @@ sub html_header
 	print $fh qq{<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
 <head>
+<meta http-equiv="Content-type" content="text/html;charset=$html_charset" />
 <title>$report_title</title>
 <meta NAME="robots" CONTENT="noindex,nofollow">
 <meta HTTP-EQUIV="Expires" CONTENT="$date">
