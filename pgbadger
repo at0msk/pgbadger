@@ -172,6 +172,8 @@ my $tsung_queries           = 0;
 my $queue_size              = 0;
 my $job_per_file            = 0;
 my $html_charset             = "UTF-8";
+my $top_databases           = 0;
+my $top_users               = 0;
 
 my $NUMPROGRESS = 10000;
 my @DIMENSIONS  = (800, 300);
@@ -300,6 +302,12 @@ if ($format eq 'syslog2') {
 
 # Set default top query
 $top ||= 20;
+
+# Set default top databases
+$top_databases ||= 20;
+
+# Set default top users
+$top_users ||= 20;
 
 # Set the default number of samples
 $sample ||= 3;
@@ -888,6 +896,10 @@ Options:
     --disable-checkpoint   : do not generate checkpoint report.
     --disable-autovacuum   : do not generate autovacuum report.
     --html-charset         : charset for html reports. default is UTF-8.
+    --top-databases        : display top N databases in queries/sessions/connections
+                           : per database reports. default is 20.
+    --top-users            : display top N users in sessions/connections per user
+                           : reports. default is 20.
 
 Examples:
 
@@ -3184,15 +3196,19 @@ sub dump_as_html
 	</tr>
 };
 			my $total_count = 0;
-			foreach my $d (sort keys %database_info) {
-				print $fh "<tr class=\"row1\"><td colspan=\"2\">$d</td><td class=\"right\">",
-					&comma_numbers($database_info{$d}{count}), "</td></tr>\n";
+            my $idx = 1;
+			foreach my $d (sort { $database_info{$b}{count} <=> $database_info{$a}{count} } keys %database_info) {
 				$total_count += $database_info{$d}{count};
-				foreach my $r (sort keys %{$database_info{$d}}) {
-					next if ($r eq 'count');
-					print $fh "<tr class=\"row0\"><td colspan=\"2\" class=\"right\">$r</td><td class=\"right\">",
-						&comma_numbers($database_info{$d}{$r}), "</td></tr>\n";
-				}
+                if ($idx < $top_databases) {
+                    print $fh "<tr class=\"row1\"><td colspan=\"2\">$d</td><td class=\"right\">",
+                        &comma_numbers($database_info{$d}{count}), "</td></tr>\n";
+                    foreach my $r (sort keys %{$database_info{$d}}) {
+                        next if ($r eq 'count');
+                        print $fh "<tr class=\"row0\"><td colspan=\"2\" class=\"right\">$r</td><td class=\"right\">",
+                            &comma_numbers($database_info{$d}{$r}), "</td></tr>\n";
+				    }
+                }
+                $idx++;
 			}
 			print $fh "</table></td><td width=\"500\" align=\"center\" valign=\"top\">\n";
 			if ($graph && $total_count) {
@@ -3333,12 +3349,16 @@ sub dump_as_html
 };
 		my $total_count = 0;
 		my $c           = 0;
-		foreach my $d (sort keys %{$session_info{database}}) {
+        my $idx         = 1;
+		foreach my $d (sort { $session_info{database}{$b}{count} <=> $session_info{database}{$a}{count} } keys %{$session_info{database}}) {
 			my $colb = $c % 2;
-			print $fh "<tr class=\"row$colb\"><td>$d</td><td class=\"right\">", &comma_numbers($session_info{database}{$d}{count}),
-				"</td><td class=\"right\">", &convert_time($session_info{database}{$d}{duration}), "</td><td class=\"right\">",
-				&convert_time($session_info{database}{$d}{duration} / $session_info{database}{$d}{count}), "</td></tr>\n";
-			$total_count += $session_info{database}{$d}{count};
+            if ($idx < $top_databases) {
+                print $fh "<tr class=\"row$colb\"><td>$d</td><td class=\"right\">", &comma_numbers($session_info{database}{$d}{count}),
+                    "</td><td class=\"right\">", &convert_time($session_info{database}{$d}{duration}), "</td><td class=\"right\">",
+                    &convert_time($session_info{database}{$d}{duration} / $session_info{database}{$d}{count}), "</td></tr>\n";
+                }
+            $idx++;
+            $total_count += $session_info{database}{$d}{count};
 			$c++;
 		}
 		print $fh "</table></td><td width=\"500\" align=\"center\" valign=\"top\">\n";
@@ -3378,12 +3398,16 @@ sub dump_as_html
 };
 		my $total_count = 0;
 		my $c           = 0;
-		foreach my $d (sort keys %{$session_info{user}}) {
+        my $idx         = 1;
+		foreach my $d (sort { $session_info{user}{$b}{count} <=> $session_info{user}{$a}{count} } keys %{$session_info{user}}) {
 			my $colb = $c % 2;
 			$total_count += $session_info{user}{$d}{count};
-			print $fh "<tr class=\"row$colb\"><td>$d</td><td class=\"right\">", &comma_numbers($session_info{user}{$d}{count}),
-				"</td><td class=\"right\">", &convert_time($session_info{user}{$d}{duration}), "</td><td class=\"right\">",
-				&convert_time($session_info{user}{$d}{duration} / $session_info{user}{$d}{count}), "</td></tr>\n";
+            if ($idx < $top_users) {
+                print $fh "<tr class=\"row$colb\"><td>$d</td><td class=\"right\">", &comma_numbers($session_info{user}{$d}{count}),
+                    "</td><td class=\"right\">", &convert_time($session_info{user}{$d}{duration}), "</td><td class=\"right\">",
+                    &convert_time($session_info{user}{$d}{duration} / $session_info{user}{$d}{count}), "</td></tr>\n";
+            }
+            $idx++;
 			$c++;
 		}
 		print $fh "</table></td><td width=\"500\" align=\"center\" valign=\"top\">\n";
@@ -3466,15 +3490,19 @@ sub dump_as_html
 	</tr>
 };
 		my $total_count = 0;
-		foreach my $d (sort keys %{$connection_info{database}}) {
-			print $fh "<tr class=\"row1\"><td colspan=\"2\">$d</td><td class=\"right\">",
-				&comma_numbers($connection_info{database}{$d}), "</td></tr>\n";
+        my $idx         = 1;
+		foreach my $d (sort { $connection_info{database}{$b} <=> $connection_info{database}{$a} } keys %{$connection_info{database}}) {
 			$total_count += $connection_info{database}{$d};
-			foreach my $u (sort keys %{$connection_info{user}}) {
-				next if (!exists $connection_info{database_user}{$d}{$u});
-				print $fh "<tr class=\"row0\"><td colspan=\"2\" class=\"right\">$u</td><td class=\"right\">",
-					&comma_numbers($connection_info{database_user}{$d}{$u}), "</td></tr>\n";
-			}
+            if ($idx < $top_databases) {
+                print $fh "<tr class=\"row1\"><td colspan=\"2\">$d</td><td class=\"right\">",
+                    &comma_numbers($connection_info{database}{$d}), "</td></tr>\n";
+                foreach my $u (sort keys %{$connection_info{user}}) {
+                    next if (!exists $connection_info{database_user}{$d}{$u});
+                    print $fh "<tr class=\"row0\"><td colspan=\"2\" class=\"right\">$u</td><td class=\"right\">",
+                        &comma_numbers($connection_info{database_user}{$d}{$u}), "</td></tr>\n";
+			    }
+            }
+            $idx++;
 		}
 		print $fh "</table></td><td width=\"500\" align=\"center\" valign=\"top\">\n";
 		if ($graph && $total_count) {
@@ -3512,11 +3540,15 @@ sub dump_as_html
 
 		my $total_count = 0;
 		my $c           = 0;
-		foreach my $u (sort keys %{$connection_info{user}}) {
+        my $idx         = 1;
+		foreach my $u (sort { $connection_info{user}{$b} <=> $connection_info{user}{$a} } keys %{$connection_info{user}}) {
 			my $colb = $c % 2;
-			print $fh "<tr class=\"row$colb\"><td>$u</td><td class=\"right\">", &comma_numbers($connection_info{user}{$u}),
-				"</td></tr>\n";
+            if ($idx < $top_users) {
+                print $fh "<tr class=\"row$colb\"><td>$u</td><td class=\"right\">", &comma_numbers($connection_info{user}{$u}),
+                    "</td></tr>\n";
+            }
 			$total_count += $connection_info{user}{$u};
+            $idx++;
 			$c++;
 		}
 		print $fh "</table></td><td width=\"500\" align=\"center\" valign=\"top\">\n";
