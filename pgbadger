@@ -243,6 +243,8 @@ my $result = GetOptions(
 	"disable-autovacuum!"      => \$disable_autovacuum,
 	"client=s"                 => \@dbclient2, # Backward compatibility
     "html-charset=s"            => \$html_charset,
+    "top-users=s"              => \$top_users,
+    "top-databases=s"          => \$top_databases,
 );
 die "FATAL: use pgbadger --help\n" if (not $result);
 
